@@ -52,6 +52,7 @@ class AddBetaTestInfoOptions:
 
 @dataclass
 class AddBuildToBetaGroupOptions:
+    max_build_processing_wait: int
     beta_group_names: List[str]
 
 
@@ -264,9 +265,9 @@ class PublishAction(AbstractBaseAction, metaclass=ABCMeta):
                 enable_phased_release=enable_phased_release,
                 disable_phased_release=disable_phased_release,
             )
-        if submit_to_testflight and beta_group_names:
-            # Only builds submitted to TestFlight can be added to beta groups
+        if beta_group_names:
             add_build_to_beta_group_options = AddBuildToBetaGroupOptions(
+                max_build_processing_wait=Types.MaxBuildProcessingWait.resolve_value(max_build_processing_wait),
                 beta_group_names=beta_group_names,
             )
         if beta_build_localizations or whats_new:
@@ -414,6 +415,8 @@ class PublishAction(AbstractBaseAction, metaclass=ABCMeta):
             self.wait_until_build_is_processed(build, testflight_options.max_build_processing_wait)
         elif app_store_options:
             self.wait_until_build_is_processed(build, app_store_options.max_build_processing_wait)
+        elif beta_group_options:
+            self.wait_until_build_is_processed(build, beta_group_options.max_build_processing_wait)
 
         if testflight_options:
             # Overwrite waiting since we already waited above.
@@ -421,7 +424,7 @@ class PublishAction(AbstractBaseAction, metaclass=ABCMeta):
             self.submit_to_testflight(build.id, **tf_options.__dict__)
 
         if beta_group_options:
-            self.add_build_to_beta_groups(build.id, **beta_group_options.__dict__)
+            self.add_build_to_beta_groups(build.id, beta_group_names=beta_group_options.beta_group_names)
 
         if app_store_options:
             app_store_submission_kwargs = {
